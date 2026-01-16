@@ -59,71 +59,38 @@ app.post('/validar-cupom', (req, res) => {
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
-    const { curso, valor, aluno } = req.body;
-
-    if (!curso || !valor || !aluno?.cpf || !aluno?.email) {
-      return res.status(400).json({ error: 'Dados incompletos' });
-    }
-
     const result = await preference.create({
       body: {
         items: [
           {
-            title: 'Curso NATUREZA CDF',
-            description: curso,
+            title: 'Teste Checkout',
             quantity: 1,
-            unit_price: Number(valor),
+            unit_price: 10,
             currency_id: 'BRL'
           }
         ],
-
-        payer: {
-          name: aluno.nome,
-          email: aluno.email,
-          identification: {
-            type: 'CPF',
-            number: String(aluno.cpf)
-          }
-        },
-
-        metadata: {
-          nome: aluno.nome,
-          cpf: aluno.cpf,
-          email: aluno.email,
-          curso: curso,
-          valor: Number(valor)
-        },
-
-        statement_descriptor: 'NATUREZA CDF',
-
         back_urls: {
-          success: `${process.env.FRONTEND_URL}/sucesso.html`,
-          failure: `${process.env.FRONTEND_URL}/erro.html`,
-          pending: `${process.env.FRONTEND_URL}/pendente.html`
-        },
-
-        auto_return: 'approved',
-
-        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
+          success: 'https://www.mercadopago.com.br',
+          failure: 'https://www.mercadopago.com.br'
+        }
       }
     });
 
     res.json({
-      init_point: result.init_point,
-      sandbox_init_point: result.sandbox_init_point
+      init_point: result.init_point
     });
 
   } catch (err) {
-    console.error('❌ ERRO CHECKOUT MP');
-    console.error(err?.cause || err);
-    console.error(err?.response?.data || 'Sem response');
+    console.error('❌ ERRO TESTE MP');
+    console.error(err?.response?.data || err);
 
     res.status(500).json({
-      error: 'Erro ao criar pagamento',
+      error: 'Erro teste MP',
       detalhe: err?.response?.data || null
     });
   }
 });
+
 
 /* ===============================
    WEBHOOK MERCADO PAGO
