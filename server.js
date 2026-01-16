@@ -26,7 +26,7 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 /* ===============================
-   CUPONS
+   CUPONS (SOMENTE PRESENCIAL)
 ================================ */
 const CUPONS = {
   EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
@@ -35,7 +35,7 @@ const CUPONS = {
 };
 
 /* ===============================
-   VALIDAR CUPOM
+   VALIDAR CUPOM (FRONTEND)
 ================================ */
 app.post('/validar-cupom', (req, res) => {
   const { cupom, curso } = req.body;
@@ -47,7 +47,7 @@ app.post('/validar-cupom', (req, res) => {
   const codigo = cupom.toUpperCase().trim();
   const cupomData = CUPONS[codigo];
 
-  if (!cupomData || !curso.startsWith(cupomData.curso)) {
+  if (!cupomData || !curso.includes(cupomData.curso)) {
     return res.status(400).json({ erro: 'Cupom inválido.' });
   }
 
@@ -55,33 +55,57 @@ app.post('/validar-cupom', (req, res) => {
 });
 
 /* ===============================
-    CRIAR PREFERÊNCIA (CHECKOUT PRO)
+   CRIAR PREFERÊNCIA (CHECKOUT PRO)
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
-    const { curso } = req.body;
+    const { curso, cupom } = req.body;
 
     if (!curso) {
       return res.status(400).json({ error: 'Curso não informado' });
     }
 
+    /* ===============================
+       PREÇO BASE (BACKEND MANDA)
+    ================================ */
     let valorFinal = null;
 
     if (curso.includes('NATUREZA CDF Online')) {
       valorFinal = 799.90;
-    } else if (curso.includes('MAX NATCDF (Combo Completo)')) {
+    } 
+    else if (curso.includes('MAX NATCDF (Combo Completo)')) {
       valorFinal = 450;
-    } else if (curso.includes('NATCDF Combo 2 Matérias')) {
+    } 
+    else if (curso.includes('NATCDF Combo 2 Matérias')) {
       valorFinal = 320;
-    } else if (curso.includes('NATCDF 1 Matéria')) {
+    } 
+    else if (curso.includes('NATCDF 1 Matéria')) {
       valorFinal = 180;
     }
 
     if (!valorFinal) {
+      console.error('❌ CURSO NÃO MAPEADO:', curso);
       return res.status(400).json({ error: 'Curso inválido' });
     }
 
-    console.log('✅ Checkout:', curso, valorFinal);
+    /* ===============================
+       APLICA CUPOM (SE EXISTIR)
+    ================================ */
+    if (cupom) {
+      const codigo = cupom.toUpperCase().trim();
+      const cupomData = CUPONS[codigo];
+
+      // ✅ Presencial: curso SEMPRE contém o nome base
+      if (cupomData && curso.includes(cupomData.curso)) {
+        valorFinal = cupomData.valorFinal;
+      }
+    }
+
+    console.log('✅ CHECKOUT FINAL:', {
+      curso,
+      cupom: cupom || 'sem cupom',
+      valorFinal
+    });
 
     const result = await preference.create({
       body: {
@@ -102,7 +126,6 @@ app.post('/create_preference', async (req, res) => {
         },
 
         auto_return: 'approved'
-        // ❌ notification_url REMOVIDO
       }
     });
 
@@ -115,9 +138,8 @@ app.post('/create_preference', async (req, res) => {
   }
 });
 
-
 /* ===============================
-    WEBHOOK MERCADO PAGO
+   WEBHOOK (OPCIONAL – FUTURO)
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
   try {
@@ -139,8 +161,6 @@ app.post('/webhook/mercadopago', async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const meta = payment.metadata || {};
-
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -154,11 +174,9 @@ app.post('/webhook/mercadopago', async (req, res) => {
       to: process.env.EMAIL_DESTINO,
       subject: '🎉 Pagamento aprovado',
       html: `
-        <p><strong>Nome:</strong> ${meta.nome}</p>
-        <p><strong>CPF:</strong> ${meta.cpf}</p>
-        <p><strong>Email:</strong> ${meta.email}</p>
-        <p><strong>Curso:</strong> ${meta.curso}</p>
-        <p><strong>Valor:</strong> R$ ${meta.valor}</p>
+        <p><strong>Status:</strong> Aprovado</p>
+        <p><strong>Valor:</strong> R$ ${payment.transaction_amount}</p>
+        <p><strong>ID:</strong> ${payment.id}</p>
       `
     });
 
