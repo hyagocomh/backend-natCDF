@@ -59,37 +59,68 @@ app.post('/validar-cupom', (req, res) => {
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
+    const { curso } = req.body;
+
+    if (!curso) {
+      return res.status(400).json({ error: 'Curso não informado' });
+    }
+
+    /* ===============================
+       TABELA DE PREÇOS (BACKEND)
+    ================================ */
+    const PRECOS = {
+      'NATUREZA CDF Online': 799.90,
+      'MAX NATCDF (Combo Completo)': 450,
+      'NATCDF Combo 2 Matérias': 320,
+      'NATCDF 1 Matéria': 180
+    };
+
+    // Remove matérias extras do nome (caso presencial)
+    const cursoBase = Object.keys(PRECOS).find(c =>
+      curso.startsWith(c)
+    );
+
+    if (!cursoBase) {
+      return res.status(400).json({ error: 'Curso inválido' });
+    }
+
+    const valorFinal = PRECOS[cursoBase];
+
     const result = await preference.create({
       body: {
         items: [
           {
-            title: 'Teste Checkout',
+            title: 'Curso NATUREZA CDF',
+            description: curso,
             quantity: 1,
-            unit_price: 10,
+            unit_price: valorFinal, // ✅ VALOR CORRETO
             currency_id: 'BRL'
           }
         ],
+
         back_urls: {
-          success: 'https://www.mercadopago.com.br',
-          failure: 'https://www.mercadopago.com.br'
-        }
+          success: `${process.env.FRONTEND_URL}/sucesso.html`,
+          failure: `${process.env.FRONTEND_URL}/erro.html`,
+          pending: `${process.env.FRONTEND_URL}/pendente.html`
+        },
+
+        auto_return: 'approved',
+        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
       }
     });
 
-    res.json({
-      init_point: result.init_point
-    });
+    res.json({ init_point: result.init_point });
 
   } catch (err) {
-    console.error('❌ ERRO TESTE MP');
+    console.error('❌ ERRO CHECKOUT MP');
     console.error(err?.response?.data || err);
 
     res.status(500).json({
-      error: 'Erro teste MP',
-      detalhe: err?.response?.data || null
+      error: 'Erro ao criar pagamento'
     });
   }
 });
+
 
 
 /* ===============================
