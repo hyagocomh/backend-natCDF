@@ -66,25 +66,35 @@ app.post('/create_preference', async (req, res) => {
     }
 
     /* ===============================
-        TABELA DE PREÇOS (BACKEND)
+       TABELA DE PREÇOS (SEGURA)
     ================================ */
-    const PRECOS = {
-      'NATUREZA CDF Online': 799.90,
-      'MAX NATCDF (Combo Completo)': 450,
-      'NATCDF Combo 2 Matérias': 320,
-      'NATCDF 1 Matéria': 180
-    };
+    let valorFinal = null;
 
-    // Remove matérias extras do nome (caso presencial)
-    const cursoBase = Object.keys(PRECOS).find(c =>
-      curso.startsWith(c)
-    );
+    if (curso.includes('NATUREZA CDF Online')) {
+      valorFinal = 799.90;
+    }
 
-    if (!cursoBase) {
+    else if (curso.includes('MAX NATCDF (Combo Completo)')) {
+      valorFinal = 450;
+    }
+
+    else if (curso.includes('NATCDF Combo 2 Matérias')) {
+      valorFinal = 320;
+    }
+
+    else if (curso.includes('NATCDF 1 Matéria')) {
+      valorFinal = 180;
+    }
+
+    if (!valorFinal) {
+      console.error('❌ CURSO NÃO MAPEADO:', curso);
       return res.status(400).json({ error: 'Curso inválido' });
     }
 
-    const valorFinal = PRECOS[cursoBase];
+    console.log('✅ Criando pagamento:', {
+      curso,
+      valorFinal
+    });
 
     const result = await preference.create({
       body: {
@@ -93,7 +103,7 @@ app.post('/create_preference', async (req, res) => {
             title: 'Curso NATUREZA CDF',
             description: curso,
             quantity: 1,
-            unit_price: valorFinal, // ✅ VALOR CORRETO
+            unit_price: valorFinal, // ✅ SEMPRE VÁLIDO
             currency_id: 'BRL'
           }
         ],
@@ -120,6 +130,7 @@ app.post('/create_preference', async (req, res) => {
     });
   }
 });
+
 
 /* ===============================
     WEBHOOK MERCADO PAGO
