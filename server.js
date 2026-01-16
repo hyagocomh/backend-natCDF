@@ -24,9 +24,9 @@ const preference = new Preference(client);
    CUPONS
 ================================ */
 const CUPONS = {
-  COMBOMAX20: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
-  '2MATERIA15': { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
-  '1MATERIA10': { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
+  EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
+  'EX2NAT': { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
+  'EX1NAT': { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
 };
 
 /* ===============================
@@ -56,13 +56,29 @@ app.post('/create_preference', async (req, res) => {
   try {
     const { curso, valor, aluno } = req.body;
 
+    if (!curso || !valor || !aluno || !aluno.cpf) {
+      return res.status(400).json({ error: 'Dados incompletos' });
+    }
+
     const result = await preference.create({
       body: {
-        items: [{ title: curso, quantity: 1, unit_price: Number(valor) }],
+        items: [
+          {
+            title: curso,
+            quantity: 1,
+            unit_price: Number(valor)
+          }
+        ],
+
         payer: {
           name: aluno.nome,
-          email: aluno.email
+          email: aluno.email,
+          identification: {
+            type: 'CPF',
+            number: aluno.cpf
+          }
         },
+
         metadata: {
           nome: aluno.nome,
           cpf: aluno.cpf,
@@ -70,21 +86,25 @@ app.post('/create_preference', async (req, res) => {
           curso,
           valor
         },
+
         back_urls: {
           success: `${process.env.FRONTEND_URL}/sucesso.html`,
           failure: `${process.env.FRONTEND_URL}/erro.html`,
           pending: `${process.env.FRONTEND_URL}/pendente.html`
         },
+
         notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
       }
     });
 
     res.json({ init_point: result.init_point });
+
   } catch (err) {
-    console.error(err);
+    console.error('❌ ERRO CHECKOUT:', err);
     res.status(500).json({ error: 'Erro ao criar pagamento' });
   }
 });
+
 
 /* ===============================
    WEBHOOK MERCADO PAGO
