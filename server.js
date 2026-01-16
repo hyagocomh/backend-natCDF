@@ -61,50 +61,37 @@ app.post('/create_preference', async (req, res) => {
     }
 
     const result = await preference.create({
-  body: {
-    items: [
-      {
-        title: curso,
-        quantity: 1,
-        unit_price: Number(valor)
+      body: {
+        items: [
+          {
+            title: 'Curso NATUREZA CDF', // 🔒 TÍTULO CURTO
+            description: curso,         // descrição pode ser longa
+            quantity: 1,
+            unit_price: Number(valor),
+            currency_id: 'BRL'
+          }
+        ],
+
+        payer: {
+          name: aluno.nome,
+          email: aluno.email,
+          identification: {
+            type: 'CPF',
+            number: String(aluno.cpf)
+          }
+        },
+
+        statement_descriptor: 'NATUREZA CDF', // 🔑 MUITO IMPORTANTE
+
+        back_urls: {
+          success: `${process.env.FRONTEND_URL}/sucesso.html`,
+          failure: `${process.env.FRONTEND_URL}/erro.html`,
+          pending: `${process.env.FRONTEND_URL}/pendente.html`
+        },
+
+        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
       }
-    ],
-
-    payer: {
-      name: aluno.nome,
-      email: aluno.email,
-      identification: {
-        type: 'CPF',
-        number: String(aluno.cpf) //  garante string
-      }
-    },
-
-    payment_methods: {
-      excluded_payment_types: [], // NÃO bloqueia Pix
-      excluded_payment_methods: [], 
-      installments: 1 // Pix não usa parcelas
-    },
-
-    binary_mode: true, //  evita estados intermediários bugadossss
-
-    metadata: {
-      nome: aluno.nome,
-      cpf: aluno.cpf,
-      email: aluno.email,
-      curso,
-      valor
-    },
-
-    back_urls: {
-      success: `${process.env.FRONTEND_URL}/sucesso.html`,
-      failure: `${process.env.FRONTEND_URL}/erro.html`,
-      pending: `${process.env.FRONTEND_URL}/pendente.html`
-    },
-
-    notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
-  }
-});
-
+    });
 
     res.json({ init_point: result.init_point });
 
@@ -113,6 +100,7 @@ app.post('/create_preference', async (req, res) => {
     res.status(500).json({ error: 'Erro ao criar pagamento' });
   }
 });
+
 
 
 /* ===============================
