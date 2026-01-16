@@ -65,36 +65,23 @@ app.post('/create_preference', async (req, res) => {
       return res.status(400).json({ error: 'Curso não informado' });
     }
 
-    /* ===============================
-       TABELA DE PREÇOS (SEGURA)
-    ================================ */
     let valorFinal = null;
 
     if (curso.includes('NATUREZA CDF Online')) {
       valorFinal = 799.90;
-    }
-
-    else if (curso.includes('MAX NATCDF (Combo Completo)')) {
+    } else if (curso.includes('MAX NATCDF (Combo Completo)')) {
       valorFinal = 450;
-    }
-
-    else if (curso.includes('NATCDF Combo 2 Matérias')) {
+    } else if (curso.includes('NATCDF Combo 2 Matérias')) {
       valorFinal = 320;
-    }
-
-    else if (curso.includes('NATCDF 1 Matéria')) {
+    } else if (curso.includes('NATCDF 1 Matéria')) {
       valorFinal = 180;
     }
 
     if (!valorFinal) {
-      console.error('❌ CURSO NÃO MAPEADO:', curso);
       return res.status(400).json({ error: 'Curso inválido' });
     }
 
-    console.log('✅ Criando pagamento:', {
-      curso,
-      valorFinal
-    });
+    console.log('✅ Checkout:', curso, valorFinal);
 
     const result = await preference.create({
       body: {
@@ -103,7 +90,7 @@ app.post('/create_preference', async (req, res) => {
             title: 'Curso NATUREZA CDF',
             description: curso,
             quantity: 1,
-            unit_price: valorFinal, // ✅ SEMPRE VÁLIDO
+            unit_price: valorFinal,
             currency_id: 'BRL'
           }
         ],
@@ -114,8 +101,8 @@ app.post('/create_preference', async (req, res) => {
           pending: `${process.env.FRONTEND_URL}/pendente.html`
         },
 
-        auto_return: 'approved',
-        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
+        auto_return: 'approved'
+        // ❌ notification_url REMOVIDO
       }
     });
 
@@ -124,10 +111,7 @@ app.post('/create_preference', async (req, res) => {
   } catch (err) {
     console.error('❌ ERRO CHECKOUT MP');
     console.error(err?.response?.data || err);
-
-    res.status(500).json({
-      error: 'Erro ao criar pagamento'
-    });
+    res.status(500).json({ error: 'Erro ao criar pagamento' });
   }
 });
 
