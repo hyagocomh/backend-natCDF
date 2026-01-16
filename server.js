@@ -55,7 +55,7 @@ app.post('/validar-cupom', (req, res) => {
 });
 
 /* ===============================
-   CRIAR PREFERÊNCIA (CHECKOUT PRO)
+    CRIAR PREFERÊNCIA (CHECKOUT PRO)
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
@@ -66,7 +66,7 @@ app.post('/create_preference', async (req, res) => {
     }
 
     /* ===============================
-       TABELA DE PREÇOS (BACKEND)
+        TABELA DE PREÇOS (BACKEND)
     ================================ */
     const PRECOS = {
       'NATUREZA CDF Online': 799.90,
@@ -121,54 +121,58 @@ app.post('/create_preference', async (req, res) => {
   }
 });
 
-
-
 /* ===============================
-   WEBHOOK MERCADO PAGO
+    WEBHOOK MERCADO PAGO
 ================================ */
-app.post('/create_preference', async (req, res) => {
+app.post('/webhook/mercadopago', async (req, res) => {
   try {
-    const { curso, valor } = req.body;
+    const paymentId = req.body?.data?.id;
+    if (!paymentId) return res.sendStatus(200);
 
-    if (!curso || !valor) {
-      return res.status(400).json({ error: 'Dados incompletos' });
+    const response = await fetch(
+      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`
+        }
+      }
+    );
+
+    const payment = await response.json();
+
+    if (payment.status !== 'approved') {
+      return res.sendStatus(200);
     }
 
-    const result = await preference.create({
-      body: {
-        items: [
-          {
-            title: 'Curso NATUREZA CDF',
-            description: curso,
-            quantity: 1,
-            unit_price: Number(valor), // ✅ VALOR REAL DO CURSO
-            currency_id: 'BRL'
-          }
-        ],
-        back_urls: {
-          success: `${process.env.FRONTEND_URL}/sucesso.html`,
-          failure: `${process.env.FRONTEND_URL}/erro.html`,
-          pending: `${process.env.FRONTEND_URL}/pendente.html`
-        },
-        auto_return: 'approved',
-        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
+    const meta = payment.metadata || {};
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
       }
     });
 
-    res.json({
-      init_point: result.init_point
+    await transporter.sendMail({
+      from: `"NATUREZA CDF" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_DESTINO,
+      subject: '🎉 Pagamento aprovado',
+      html: `
+        <p><strong>Nome:</strong> ${meta.nome}</p>
+        <p><strong>CPF:</strong> ${meta.cpf}</p>
+        <p><strong>Email:</strong> ${meta.email}</p>
+        <p><strong>Curso:</strong> ${meta.curso}</p>
+        <p><strong>Valor:</strong> R$ ${meta.valor}</p>
+      `
     });
 
+    res.sendStatus(200);
   } catch (err) {
-    console.error('❌ ERRO CHECKOUT MP');
-    console.error(err?.response?.data || err);
-
-    res.status(500).json({
-      error: 'Erro ao criar pagamento'
-    });
+    console.error('❌ ERRO WEBHOOK:', err);
+    res.sendStatus(500);
   }
 });
-
 
 /* ===============================
    START SERVER
