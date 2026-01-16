@@ -26,7 +26,7 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 /* ===============================
-   CUPONS (SOMENTE PRESENCIAL)
+   CUPONS (APENAS PRESENCIAL)
 ================================ */
 const CUPONS = {
   EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
@@ -59,14 +59,14 @@ app.post('/validar-cupom', (req, res) => {
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
-    const { curso, cupom } = req.body;
+    const { curso, cupom, aluno } = req.body;
 
-    if (!curso) {
-      return res.status(400).json({ error: 'Curso não informado' });
+    if (!curso || !aluno?.nome || !aluno?.cpf || !aluno?.email) {
+      return res.status(400).json({ error: 'Dados incompletos' });
     }
 
     /* ===============================
-       PREÇO BASE (BACKEND MANDA)
+       PREÇO BASE (BACKEND)
     ================================ */
     let valorFinal = null;
 
@@ -84,7 +84,6 @@ app.post('/create_preference', async (req, res) => {
     }
 
     if (!valorFinal) {
-      console.error('❌ CURSO NÃO MAPEADO:', curso);
       return res.status(400).json({ error: 'Curso inválido' });
     }
 
@@ -95,7 +94,6 @@ app.post('/create_preference', async (req, res) => {
       const codigo = cupom.toUpperCase().trim();
       const cupomData = CUPONS[codigo];
 
-      // ✅ Presencial: curso SEMPRE contém o nome base
       if (cupomData && curso.includes(cupomData.curso)) {
         valorFinal = cupomData.valorFinal;
       }
@@ -104,7 +102,8 @@ app.post('/create_preference', async (req, res) => {
     console.log('✅ CHECKOUT FINAL:', {
       curso,
       cupom: cupom || 'sem cupom',
-      valorFinal
+      valorFinal,
+      aluno
     });
 
     const result = await preference.create({
@@ -118,6 +117,23 @@ app.post('/create_preference', async (req, res) => {
             currency_id: 'BRL'
           }
         ],
+
+        metadata: {
+          curso: curso,
+          valor: valorFinal,
+          nome: aluno.nome,
+          cpf: aluno.cpf,
+          email: aluno.email
+        },
+
+        payer: {
+          name: aluno.nome,
+          email: aluno.email,
+          identification: {
+            type: 'CPF',
+            number: String(aluno.cpf)
+          }
+        },
 
         back_urls: {
           success: `${process.env.FRONTEND_URL}/sucesso.html`,
@@ -139,7 +155,7 @@ app.post('/create_preference', async (req, res) => {
 });
 
 /* ===============================
-   WEBHOOK (OPCIONAL – FUTURO)
+   WEBHOOK MERCADO PAGO
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
   try {
@@ -161,6 +177,8 @@ app.post('/webhook/mercadopago', async (req, res) => {
       return res.sendStatus(200);
     }
 
+    const meta = payment.metadata || {};
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -174,9 +192,13 @@ app.post('/webhook/mercadopago', async (req, res) => {
       to: process.env.EMAIL_DESTINO,
       subject: '🎉 Pagamento aprovado',
       html: `
-        <p><strong>Status:</strong> Aprovado</p>
-        <p><strong>Valor:</strong> R$ ${payment.transaction_amount}</p>
-        <p><strong>ID:</strong> ${payment.id}</p>
+        <h2>Pagamento aprovado</h2>
+        <p><strong>Curso:</strong> ${meta.curso}</p>
+        <p><strong>Valor:</strong> R$ ${meta.valor}</p>
+        <p><strong>Nome:</strong> ${meta.nome}</p>
+        <p><strong>CPF:</strong> ${meta.cpf}</p>
+        <p><strong>Email:</strong> ${meta.email}</p>
+        <p><strong>ID Pagamento:</strong> ${payment.id}</p>
       `
     });
 
