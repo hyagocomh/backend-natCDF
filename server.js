@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 const app = express();
@@ -14,6 +15,10 @@ app.use(express.json());
 /* ===============================
    MERCADO PAGO
 ================================ */
+if (!process.env.MP_ACCESS_TOKEN) {
+  throw new Error('❌ MP_ACCESS_TOKEN não configurado no .env');
+}
+
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN
 });
@@ -25,8 +30,8 @@ const preference = new Preference(client);
 ================================ */
 const CUPONS = {
   EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
-  'EX2NAT': { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
-  'EX1NAT': { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
+  EX2NAT: { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
+  EX1NAT: { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
 };
 
 /* ===============================
@@ -50,13 +55,13 @@ app.post('/validar-cupom', (req, res) => {
 });
 
 /* ===============================
-   CRIAR PAGAMENTO
+   CRIAR PREFERÊNCIA (CHECKOUT PRO)
 ================================ */
 app.post('/create_preference', async (req, res) => {
   try {
     const { curso, valor, aluno } = req.body;
 
-    if (!curso || !valor || !aluno || !aluno.cpf) {
+    if (!curso || !valor || !aluno?.cpf || !aluno?.email) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
@@ -64,8 +69,8 @@ app.post('/create_preference', async (req, res) => {
       body: {
         items: [
           {
-            title: 'Curso NATUREZA CDF', // 🔒 TÍTULO CURTO
-            description: curso,         // descrição pode ser longa
+            title: 'Curso NATUREZA CDF',
+            description: curso,
             quantity: 1,
             unit_price: Number(valor),
             currency_id: 'BRL'
@@ -81,7 +86,15 @@ app.post('/create_preference', async (req, res) => {
           }
         },
 
-        statement_descriptor: 'NATUREZA CDF', // 🔑 MUITO IMPORTANTE
+        metadata: {
+          nome: aluno.nome,
+          cpf: aluno.cpf,
+          email: aluno.email,
+          curso: curso,
+          valor: Number(valor)
+        },
+
+        statement_descriptor: 'NATUREZA CDF',
 
         back_urls: {
           success: `${process.env.FRONTEND_URL}/sucesso.html`,
@@ -89,19 +102,28 @@ app.post('/create_preference', async (req, res) => {
           pending: `${process.env.FRONTEND_URL}/pendente.html`
         },
 
+        auto_return: 'approved',
+
         notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
       }
     });
 
-    res.json({ init_point: result.init_point });
+    res.json({
+      init_point: result.init_point,
+      sandbox_init_point: result.sandbox_init_point
+    });
 
   } catch (err) {
-    console.error('❌ ERRO CHECKOUT:', err);
-    res.status(500).json({ error: 'Erro ao criar pagamento' });
+    console.error('❌ ERRO CHECKOUT MP');
+    console.error(err?.cause || err);
+    console.error(err?.response?.data || 'Sem response');
+
+    res.status(500).json({
+      error: 'Erro ao criar pagamento',
+      detalhe: err?.response?.data || null
+    });
   }
 });
-
-
 
 /* ===============================
    WEBHOOK MERCADO PAGO
@@ -151,11 +173,14 @@ app.post('/webhook/mercadopago', async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.error(err);
+    console.error('❌ ERRO WEBHOOK:', err);
     res.sendStatus(500);
   }
 });
 
-app.listen(PORT, () =>
-  console.log(`🚀 Backend rodando na porta ${PORT}`)
-);
+/* ===============================
+   START SERVER
+================================ */
+app.listen(PORT, () => {
+  console.log(`🚀 Backend rodando na porta ${PORT}`);
+});
