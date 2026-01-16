@@ -61,41 +61,50 @@ app.post('/create_preference', async (req, res) => {
     }
 
     const result = await preference.create({
-      body: {
-        items: [
-          {
-            title: curso,
-            quantity: 1,
-            unit_price: Number(valor)
-          }
-        ],
-
-        payer: {
-          name: aluno.nome,
-          email: aluno.email,
-          identification: {
-            type: 'CPF',
-            number: aluno.cpf
-          }
-        },
-
-        metadata: {
-          nome: aluno.nome,
-          cpf: aluno.cpf,
-          email: aluno.email,
-          curso,
-          valor
-        },
-
-        back_urls: {
-          success: `${process.env.FRONTEND_URL}/sucesso.html`,
-          failure: `${process.env.FRONTEND_URL}/erro.html`,
-          pending: `${process.env.FRONTEND_URL}/pendente.html`
-        },
-
-        notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
+  body: {
+    items: [
+      {
+        title: curso,
+        quantity: 1,
+        unit_price: Number(valor)
       }
-    });
+    ],
+
+    payer: {
+      name: aluno.nome,
+      email: aluno.email,
+      identification: {
+        type: 'CPF',
+        number: String(aluno.cpf) //  garante string
+      }
+    },
+
+    payment_methods: {
+      excluded_payment_types: [], // NÃO bloqueia Pix
+      excluded_payment_methods: [], 
+      installments: 1 // Pix não usa parcelas
+    },
+
+    binary_mode: true, //  evita estados intermediários bugadossss
+
+    metadata: {
+      nome: aluno.nome,
+      cpf: aluno.cpf,
+      email: aluno.email,
+      curso,
+      valor
+    },
+
+    back_urls: {
+      success: `${process.env.FRONTEND_URL}/sucesso.html`,
+      failure: `${process.env.FRONTEND_URL}/erro.html`,
+      pending: `${process.env.FRONTEND_URL}/pendente.html`
+    },
+
+    notification_url: `${process.env.RENDER_URL}/webhook/mercadopago`
+  }
+});
+
 
     res.json({ init_point: result.init_point });
 
