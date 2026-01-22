@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
-const fetch = require('node-fetch');
+const axios = require('axios'); // ✅ axios no lugar de fetch
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 const app = express();
@@ -66,45 +66,31 @@ app.post('/create_preference', async (req, res) => {
     }
 
     /* ===============================
-       PREÇO BASE (BACKEND)
+       PREÇO BASE
     ================================ */
     let valorFinal = null;
 
-    if (curso.includes('NATUREZA CDF Online')) {
-      valorFinal = 799.90;
-    } 
-    else if (curso.includes('MAX NATCDF (Combo Completo)')) {
-      valorFinal = 450;
-    } 
-    else if (curso.includes('NATCDF Combo 2 Matérias')) {
-      valorFinal = 320;
-    } 
-    else if (curso.includes('NATCDF 1 Matéria')) {
-      valorFinal = 180;
-    }
+    if (curso.includes('NATUREZA CDF Online')) valorFinal = 799.90;
+    else if (curso.includes('MAX NATCDF (Combo Completo)')) valorFinal = 450;
+    else if (curso.includes('NATCDF Combo 2 Matérias')) valorFinal = 320;
+    else if (curso.includes('NATCDF 1 Matéria')) valorFinal = 180;
 
     if (!valorFinal) {
       return res.status(400).json({ error: 'Curso inválido' });
     }
 
     /* ===============================
-       APLICA CUPOM (SE EXISTIR)
+       APLICA CUPOM
     ================================ */
     if (cupom) {
       const codigo = cupom.toUpperCase().trim();
       const cupomData = CUPONS[codigo];
-
       if (cupomData && curso.includes(cupomData.curso)) {
         valorFinal = cupomData.valorFinal;
       }
     }
 
-    console.log('✅ CHECKOUT FINAL:', {
-      curso,
-      cupom: cupom || 'sem cupom',
-      valorFinal,
-      aluno
-    });
+    console.log('✅ CHECKOUT FINAL:', { curso, cupom, valorFinal });
 
     const result = await preference.create({
       body: {
@@ -119,7 +105,7 @@ app.post('/create_preference', async (req, res) => {
         ],
 
         metadata: {
-          curso: curso,
+          curso,
           valor: valorFinal,
           nome: aluno.nome,
           cpf: aluno.cpf,
@@ -143,7 +129,7 @@ app.post('/create_preference', async (req, res) => {
 
         auto_return: 'approved',
 
-        // ✅ ESSENCIAL PARA O E-MAIL FUNCIONAR
+        // 🔥 webhook funcionando
         notification_url: 'https://backend-natcdf.onrender.com/webhook/mercadopago'
       }
     });
@@ -161,14 +147,13 @@ app.post('/create_preference', async (req, res) => {
    WEBHOOK MERCADO PAGO
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
-
-    console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body, null, 2));
+  console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body, null, 2));
 
   try {
     const paymentId = req.body?.data?.id;
     if (!paymentId) return res.sendStatus(200);
 
-    const response = await fetch(
+    const response = await axios.get(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
         headers: {
@@ -177,7 +162,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
       }
     );
 
-    const payment = await response.json();
+    const payment = response.data;
 
     if (payment.status !== 'approved') {
       return res.sendStatus(200);
