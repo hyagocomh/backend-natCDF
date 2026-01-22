@@ -30,8 +30,7 @@ const preference = new Preference(client);
 const CUPONS = {
   EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
   EX2NAT: { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
-  EX1NAT: { curso: 'NATCDF 1 Matéria', valorFinal: 160 },
-  TESTE2: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 2.00 }
+  EX1NAT: { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
 };
 
 /* ===============================
