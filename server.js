@@ -141,7 +141,10 @@ app.post('/create_preference', async (req, res) => {
           pending: `${process.env.FRONTEND_URL}/pendente.html`
         },
 
-        auto_return: 'approved'
+        auto_return: 'approved',
+
+        // ✅ ESSENCIAL PARA O E-MAIL FUNCIONAR
+        notification_url: 'https://backend-natcdf.onrender.com/webhook/mercadopago'
       }
     });
 
@@ -158,6 +161,9 @@ app.post('/create_preference', async (req, res) => {
    WEBHOOK MERCADO PAGO
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
+
+    console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body, null, 2));
+
   try {
     const paymentId = req.body?.data?.id;
     if (!paymentId) return res.sendStatus(200);
