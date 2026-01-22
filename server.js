@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 const axios = require('axios');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
@@ -32,8 +31,6 @@ const CUPONS = {
   EX3NAT: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
   EX2NAT: { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
   EX1NAT: { curso: 'NATCDF 1 Matéria', valorFinal: 160 },
-
-  // 🧪 TESTE
   TESTE2: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 2.00 }
 };
 
@@ -122,7 +119,6 @@ app.post('/create_preference', async (req, res) => {
         },
 
         auto_return: 'approved',
-
         notification_url: 'https://backend-natcdf.onrender.com/webhook/mercadopago'
       }
     });
@@ -139,43 +135,27 @@ app.post('/create_preference', async (req, res) => {
    WEBHOOK MERCADO PAGO
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
-  console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body, null, 2));
+  console.log('📩 WEBHOOK RECEBIDO');
 
   try {
     const paymentId = req.body?.data?.id;
     if (!paymentId) return res.sendStatus(200);
 
-    // Busca pagamento no Mercado Pago
     const response = await axios.get(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`
-        }
-      }
+      { headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` } }
     );
 
     const payment = response.data;
-
-    if (payment.status !== 'approved') {
-      return res.sendStatus(200);
-    }
+    if (payment.status !== 'approved') return res.sendStatus(200);
 
     const meta = payment.metadata || {};
 
-    /* ===============================
-       ENVIO DE EMAIL VIA BREVO API
-    ================================ */
     await axios.post(
       'https://api.brevo.com/v3/smtp/email',
       {
-        sender: {
-          name: 'NATUREZA CDF',
-          email: process.env.EMAIL_FROM
-        },
-        to: [
-          { email: process.env.EMAIL_DESTINO }
-        ],
+        sender: { name: 'NATUREZA CDF', email: process.env.EMAIL_FROM },
+        to: [{ email: process.env.EMAIL_DESTINO }],
         subject: '🎉 Pagamento aprovado',
         htmlContent: `
           <h2>Pagamento aprovado</h2>
@@ -184,7 +164,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
           <p><strong>Nome:</strong> ${meta.nome}</p>
           <p><strong>CPF:</strong> ${meta.cpf}</p>
           <p><strong>Email:</strong> ${meta.email}</p>
-          <p><strong>ID Pagamento:</strong> ${payment.id}</p>
+          <p><strong>ID:</strong> ${payment.id}</p>
         `
       },
       {
@@ -195,8 +175,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
       }
     );
 
-    console.log('📧 Email enviado com sucesso via Brevo API');
-
+    console.log('📧 Email enviado com sucesso');
     res.sendStatus(200);
 
   } catch (err) {
@@ -205,10 +184,6 @@ app.post('/webhook/mercadopago', async (req, res) => {
   }
 });
 
-
-/* ===============================
-   START
-================================ */
 app.listen(PORT, () => {
   console.log(`🚀 Backend rodando na porta ${PORT}`);
 });
