@@ -139,12 +139,13 @@ app.post('/create_preference', async (req, res) => {
    WEBHOOK MERCADO PAGO
 ================================ */
 app.post('/webhook/mercadopago', async (req, res) => {
-  console.log('📩 WEBHOOK RECEBIDO');
+  console.log('📩 WEBHOOK RECEBIDO:', JSON.stringify(req.body, null, 2));
 
   try {
     const paymentId = req.body?.data?.id;
     if (!paymentId) return res.sendStatus(200);
 
+    // Busca pagamento no Mercado Pago
     const response = await axios.get(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -163,39 +164,47 @@ app.post('/webhook/mercadopago', async (req, res) => {
     const meta = payment.metadata || {};
 
     /* ===============================
-       BREVO SMTP
+       ENVIO DE EMAIL VIA BREVO API
     ================================ */
-    const transporter = nodemailer.createTransport({
-      host: process.env.BREVO_SMTP_HOST,
-      port: Number(process.env.BREVO_SMTP_PORT),
-      secure: false,
-      auth: {
-        user: process.env.BREVO_SMTP_USER,
-        pass: process.env.BREVO_SMTP_PASS
+    await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: 'NATUREZA CDF',
+          email: process.env.EMAIL_FROM
+        },
+        to: [
+          { email: process.env.EMAIL_DESTINO }
+        ],
+        subject: '🎉 Pagamento aprovado',
+        htmlContent: `
+          <h2>Pagamento aprovado</h2>
+          <p><strong>Curso:</strong> ${meta.curso}</p>
+          <p><strong>Valor:</strong> R$ ${meta.valor}</p>
+          <p><strong>Nome:</strong> ${meta.nome}</p>
+          <p><strong>CPF:</strong> ${meta.cpf}</p>
+          <p><strong>Email:</strong> ${meta.email}</p>
+          <p><strong>ID Pagamento:</strong> ${payment.id}</p>
+        `
+      },
+      {
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
-    await transporter.sendMail({
-      from: `"NATUREZA CDF" <${process.env.EMAIL_FROM}>`,
-      to: process.env.EMAIL_DESTINO,
-      subject: '🎉 Pagamento aprovado',
-      html: `
-        <h2>Pagamento aprovado</h2>
-        <p><strong>Curso:</strong> ${meta.curso}</p>
-        <p><strong>Valor:</strong> R$ ${meta.valor}</p>
-        <p><strong>Nome:</strong> ${meta.nome}</p>
-        <p><strong>CPF:</strong> ${meta.cpf}</p>
-        <p><strong>Email:</strong> ${meta.email}</p>
-        <p><strong>ID Pagamento:</strong> ${payment.id}</p>
-      `
-    });
+    console.log('📧 Email enviado com sucesso via Brevo API');
 
     res.sendStatus(200);
+
   } catch (err) {
-    console.error('❌ ERRO WEBHOOK:', err);
+    console.error('❌ ERRO WEBHOOK:', err.response?.data || err.message);
     res.sendStatus(500);
   }
 });
+
 
 /* ===============================
    START
