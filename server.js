@@ -155,9 +155,9 @@ app.post('/webhook/mercadopago', async (req, res) => {
       {
         sender: { name: 'NATUREZA CDF', email: process.env.EMAIL_FROM },
         to: [{ email: process.env.EMAIL_DESTINO }],
-        subject: '🎉 Pagamento aprovado',
+        subject: '🎉 Matricula efetivada',
         htmlContent: `
-          <h2>Pagamento aprovado</h2>
+          <h2>Matricula efetivada</h2>
           <p><strong>Curso:</strong> ${meta.curso}</p>
           <p><strong>Valor:</strong> R$ ${meta.valor}</p>
           <p><strong>Nome:</strong> ${meta.nome}</p>
