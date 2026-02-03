@@ -28,9 +28,9 @@ const preference = new Preference(client);
    CUPONS
 ================================ */
 const CUPONS = {
-  ALUNONAT3: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
-  ALUNONAT2: { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
-  ALUNONAT1: { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
+  ALUNO3: { curso: 'MAX NATCDF (Combo Completo)', valorFinal: 360 },
+  ALUNO2: { curso: 'NATCDF Combo 2 Matérias', valorFinal: 270 },
+  ALUNO1: { curso: 'NATCDF 1 Matéria', valorFinal: 160 }
 };
 
 /* ===============================
