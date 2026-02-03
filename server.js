@@ -93,14 +93,16 @@ app.post('/create_preference', async (req, res) => {
           currency_id: 'BRL'
         }],
 
-        metadata: {
-          curso,
-          valor: valorFinal,
-          nome: aluno.nome,
-          cpf: aluno.cpf,
-          email: aluno.email,
-          cupom: cupom || null
-        },
+    metadata: {
+      curso,
+      valor: valorFinal,
+      nome: aluno.nome,
+      cpf: aluno.cpf,
+      email: aluno.email,
+      telefone: aluno.telefone || null,
+      cupom: cupom || null
+    },
+
 
         payer: {
           name: aluno.nome,
@@ -163,6 +165,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
           <p><strong>Nome:</strong> ${meta.nome}</p>
           <p><strong>CPF:</strong> ${meta.cpf}</p>
           <p><strong>Email:</strong> ${meta.email}</p>
+          <p><strong>Telefone:</strong> ${meta.telefone || 'Não informado'}</p>
           <p><strong>ID:</strong> ${payment.id}</p>
         `
       },
