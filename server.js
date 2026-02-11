@@ -151,6 +151,7 @@ app.post('/webhook/mercadopago', async (req, res) => {
     if (payment.status !== 'approved') return res.sendStatus(200);
 
     const meta = payment.metadata || {};
+    console.log(`✅ PAGAMENTO APROVADO | Curso: ${meta.curso || 'N/A'} | Valor: R$ ${meta.valor || 'N/A'}`);
 
     await axios.post(
       'https://api.brevo.com/v3/smtp/email',
