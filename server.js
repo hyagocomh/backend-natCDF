@@ -190,7 +190,7 @@ app.use(
       if (corsAllowedOrigins.has(origin)) return callback(null, true);
       return callback(Object.assign(new Error('CORS bloqueado para esta origem.'), { statusCode: 403 }));
     },
-    methods: ['POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-signature', 'x-request-id'],
     optionsSuccessStatus: 204,
     maxAge: 600
@@ -237,6 +237,11 @@ const webhookLimiter = buildRateLimiter({
   windowMs: 5 * 60 * 1000,
   max: 120,
   name: 'webhook_mercadopago'
+});
+const confirmPaymentLimiter = buildRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 80,
+  name: 'confirmar_pagamento'
 });
 
 app.use(globalLimiter);
@@ -315,6 +320,14 @@ const createPreferenceSchema = z
   })
   .strip();
 
+const confirmarPagamentoSchema = z
+  .object({
+    paymentId: z.union([z.string().trim().max(40), z.number(), z.undefined(), z.null()]).optional(),
+    payment_id: z.union([z.string().trim().max(40), z.number(), z.undefined(), z.null()]).optional(),
+    collection_id: z.union([z.string().trim().max(40), z.number(), z.undefined(), z.null()]).optional()
+  })
+  .strip();
+
 function parseBodyOrNull(schema, body) {
   const result = schema.safeParse(body);
   if (!result.success) {
@@ -346,6 +359,18 @@ function sanitizePaymentId(paymentId) {
   const normalized = String(paymentId || '').trim();
   if (!/^\d{5,30}$/.test(normalized)) return null;
   return normalized;
+}
+
+function extractPaymentIdFromInput(input) {
+  const payload = parseBodyOrNull(confirmarPagamentoSchema, input || {});
+  if (!payload) return null;
+
+  return (
+    sanitizePaymentId(payload.paymentId) ||
+    sanitizePaymentId(payload.payment_id) ||
+    sanitizePaymentId(payload.collection_id) ||
+    null
+  );
 }
 
 function doneMarkerPath(paymentId) {
@@ -781,6 +806,49 @@ app.post('/webhook/mercadopago', webhookLimiter, async (req, res) => {
     return res.sendStatus(500);
   }
 });
+
+/* ===============================
+   CONFIRMAR PAGAMENTO (FALLBACK SEM WEBHOOK)
+================================ */
+async function handleConfirmarPagamento(req, res) {
+  const paymentId = extractPaymentIdFromInput({
+    ...(req.query || {}),
+    ...(req.body || {})
+  });
+
+  if (!paymentId) {
+    return res.status(400).json({ error: 'Pagamento invalido' });
+  }
+
+  try {
+    const response = await requestWithRetry(
+      () => mercadoPagoApi.get(`/v1/payments/${encodeURIComponent(paymentId)}`),
+      2
+    );
+
+    const payment = response.data || {};
+    const status = String(payment.status || 'unknown').toLowerCase();
+    const aprovado = status === 'approved';
+
+    logEvent('info', 'payment_confirmation_checked', {
+      paymentId,
+      status,
+      aprovado
+    });
+
+    return res.json({ aprovado, status, paymentId: String(payment.id || paymentId) });
+  } catch (err) {
+    logEvent('error', 'payment_confirmation_error', {
+      paymentId,
+      message: err?.message || 'unknown_error',
+      status: err?.response?.status || null
+    });
+    return res.status(502).json({ error: 'Erro ao confirmar pagamento' });
+  }
+}
+
+app.get('/confirmar-pagamento', confirmPaymentLimiter, handleConfirmarPagamento);
+app.post('/confirmar-pagamento', confirmPaymentLimiter, handleConfirmarPagamento);
 
 app.use((err, req, res, next) => {
   const statusCode = Number(err?.statusCode || err?.status || 500);
