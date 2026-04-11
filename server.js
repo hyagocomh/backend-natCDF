@@ -22,7 +22,7 @@ const PROCESSING_LOCK_TTL_MS = Number(process.env.PROCESSING_LOCK_TTL_MS || 2 * 
 const IDEMPOTENCY_DIR = path.join(__dirname, '.idempotency');
 
 const REQUIRED_ENV_ALWAYS = ['FRONTEND_URL', 'MP_ACCESS_TOKEN'];
-const REQUIRED_ENV_PROD = ['MP_WEBHOOK_SECRET', 'EMAIL_FROM', 'EMAIL_DESTINO', 'BREVO_API_KEY'];
+const REQUIRED_ENV_PROD = ['EMAIL_FROM', 'EMAIL_DESTINO', 'BREVO_API_KEY'];
 
 function safeJsonStringify(value) {
   try {
@@ -102,6 +102,12 @@ function failStartupIfInvalidConfig() {
 
   if (missing.length > 0) {
     throw new Error(`Variaveis de ambiente obrigatorias ausentes: ${missing.join(', ')}`);
+  }
+
+  if (IS_PRODUCTION && !String(process.env.MP_WEBHOOK_SECRET || '').trim()) {
+    console.warn(
+      '{"level":"warn","event":"insecure_config_webhook_disabled","message":"MP_WEBHOOK_SECRET ausente em producao; endpoint /webhook/mercadopago respondera 503"}'
+    );
   }
 
   if (!Number.isFinite(WEBHOOK_REPLAY_WINDOW_SECONDS) || WEBHOOK_REPLAY_WINDOW_SECONDS < 60 || WEBHOOK_REPLAY_WINDOW_SECONDS > 3600) {
