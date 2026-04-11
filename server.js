@@ -283,7 +283,7 @@ const validarCupomSchema = z
     cupom: z.string().trim().min(1).max(32),
     curso: z.string().trim().min(1).max(140)
   })
-  .strict();
+  .strip();
 
 const alunoSchema = z
   .object({
@@ -294,7 +294,7 @@ const alunoSchema = z
       .transform((value) => String(value || '').replace(/\D/g, ''))
       .refine((value) => /^\d{11}$/.test(value), { message: 'CPF invalido.' }),
     telefone: z
-      .union([z.string().trim().max(20), z.undefined()])
+      .union([z.string().trim().max(20), z.null(), z.undefined()])
       .optional()
       .transform((value) => {
         const cleaned = String(value || '').replace(/\D/g, '');
@@ -305,19 +305,27 @@ const alunoSchema = z
         message: 'Telefone invalido.'
       })
   })
-  .strict();
+  .strip();
 
 const createPreferenceSchema = z
   .object({
     curso: z.string().trim().min(1).max(140),
-    cupom: z.union([z.string().trim().max(32), z.undefined()]).optional(),
+    cupom: z.union([z.string().trim().max(32), z.null(), z.undefined()]).optional(),
     aluno: alunoSchema
   })
-  .strict();
+  .strip();
 
 function parseBodyOrNull(schema, body) {
   const result = schema.safeParse(body);
-  if (!result.success) return null;
+  if (!result.success) {
+    logEvent('warn', 'request_validation_failed', {
+      issues: result.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        code: issue.code
+      }))
+    });
+    return null;
+  }
   return result.data;
 }
 
